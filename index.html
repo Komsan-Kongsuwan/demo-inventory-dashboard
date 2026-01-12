@@ -1,0 +1,2246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Dashboard</title>
+    
+    <!-- SheetJS for Excel reading -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0d1b2a;
+            color: white;
+            overflow: hidden;
+        }
+
+        .layout {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            background: #1b263b;
+            padding: 15px 10px;
+            width: 280px;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+
+        .sidebar.collapsed {
+            width: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .toggle-btn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            z-index: 1000;
+            transition: all 0.2s ease;
+        }
+
+        .toggle-btn:hover {
+            background: #0056b3;
+        }
+
+        .sidebar-header {
+            font-size: 13px;
+            font-weight: bold;
+            color: #ff9800;
+            margin: 10px 0 8px 0;
+        }
+
+        .toggle-radio {
+            display: flex;
+            gap: 0;
+            margin: 8px 0 12px 0;
+        }
+
+        .toggle-radio label {
+            font-size: 11px;
+            padding: 6px 16px;
+            margin: 0;
+            border: 1px solid #007bff;
+            cursor: pointer;
+            background-color: #1b263b;
+            color: #e9ecef;
+            transition: all 0.2s ease;
+            text-align: center;
+            flex: 1;
+        }
+
+        .toggle-radio label:first-of-type {
+            border-radius: 4px 0 0 4px;
+        }
+
+        .toggle-radio label:not(:first-of-type) {
+            border-left: none;
+        }
+
+        .toggle-radio label:last-of-type {
+            border-radius: 0 4px 4px 0;
+        }
+
+        .toggle-radio label:hover {
+            background-color: #2c3e50;
+        }
+
+        .toggle-radio input[type="radio"] {
+            display: none;
+        }
+
+        .toggle-radio input[type="radio"]:checked + label {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+
+        .items-container {
+            overflow-y: auto;
+            max-height: 60vh;
+            margin-bottom: 10px;
+        }
+
+        .sidebar-link {
+            display: block;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 11px;
+            color: #e9ecef;
+            border-radius: 3px;
+            margin: 1px 0;
+            transition: all 0.2s ease;
+        }
+
+        .sidebar-link:hover {
+            background: #007bff;
+            color: white;
+        }
+
+        .sidebar-link.active {
+            background: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+
+        .download-section {
+            border-top: 1px solid #495057;
+            padding-top: 10px;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        .download-link {
+            display: inline-block;
+            padding: 8px 16px;
+            background-color: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            transition: background-color 0.2s ease;
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .download-link:hover {
+            background-color: #218838;
+        }
+
+        .file-upload-section {
+            border-top: 1px solid #495057;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-input-label {
+            display: block;
+            padding: 8px 16px;
+            background-color: #007bff;
+            color: white;
+            text-align: center;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: bold;
+            transition: background-color 0.2s ease;
+        }
+
+        .file-input-label:hover {
+            background-color: #0056b3;
+        }
+
+        .file-status {
+            font-size: 10px;
+            color: #6c757d;
+            margin-top: 5px;
+            text-align: center;
+        }
+
+        /* Content Area */
+        .content {
+            flex: 1;
+            background-color: #0d1b2a;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 16px;
+            color: #e9ecef;
+        }
+
+        /* Chart Grid */
+        .chart-grid {
+            display: grid;
+            gap: 20px;
+        }
+
+        .chart-row {
+            display: grid;
+            gap: 15px;
+        }
+
+        .chart-row-2 {
+            grid-template-columns: 60% 1fr;
+            align-items: stretch;
+        }
+
+        .chart-row-1 {
+            grid-template-columns: 1fr;
+        }
+
+        .chart-row-even {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .chart-container {
+            background: #1b263b;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            height: 400px;
+        }
+
+        .chart-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #ff9800;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .chart-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* Make Top 10 charts clickable */
+        #chartTopItems, #chartTopStock {
+            cursor: pointer;
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1b263b;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #495057;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6c757d;
+        }
+
+        /* Chart Indicator Styles */
+        .chart-indicator {
+            position: absolute;
+            top: 45px;
+            right: 15px;
+            background: rgba(27, 38, 59, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 10px;
+            min-width: 250px;
+            z-index: 10;
+        }
+
+        .indicator-title {
+            font-size: 11px;
+            color: #ff9800;
+            font-weight: bold;
+            margin-bottom: 6px;
+            text-align: center;
+        }
+
+        .indicator-bar-container {
+            display: flex;
+            width: 100%;
+            height: 30px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 6px;
+        }
+
+        .indicator-bar-segment {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .indicator-top10 {
+            background: linear-gradient(90deg, #2ecc71 0%, #27ae60 100%);
+        }
+
+        .chart-container:has(#chartTopStock) .indicator-top10 {
+            background: linear-gradient(90deg, #3498db 0%, #2980b9 100%);
+        }
+
+        .indicator-rest {
+            background: linear-gradient(90deg, #95a5a6 0%, #7f8c8d 100%);
+        }
+
+        .indicator-text {
+            font-size: 10px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+            white-space: nowrap;
+        }
+
+        .indicator-legend {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            font-size: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: white;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            display: inline-block;
+        }
+
+        /* AI Analysis Section */
+        .ai-analysis-section {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            border: 2px solid #4a90e2;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(74, 144, 226, 0.3);
+        }
+
+        .ai-analysis-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .ai-icon {
+            font-size: 28px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .ai-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .ai-analysis-content {
+            color: #e8f4f8;
+            line-height: 1.8;
+            font-size: 14px;
+        }
+
+        .analysis-loading {
+            text-align: center;
+            padding: 20px;
+            color: rgba(255, 255, 255, 0.7);
+            font-style: italic;
+        }
+
+        .insight-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-left: 4px solid #4a90e2;
+            padding: 12px 15px;
+            margin: 12px 0;
+            border-radius: 6px;
+        }
+
+        .insight-title {
+            font-weight: 700;
+            color: #ffd700;
+            margin-bottom: 8px;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .insight-text {
+            margin-bottom: 8px;
+            color: #e8f4f8;
+        }
+
+        .insight-recommendation {
+            background: rgba(255, 193, 7, 0.15);
+            border-left: 3px solid #ffc107;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            font-style: italic;
+        }
+
+        .insight-recommendation::before {
+            content: "💡 Recommendation: ";
+            font-weight: bold;
+            color: #ffc107;
+        }
+
+        .item-list {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+
+        .item-list-item {
+            margin: 4px 0;
+            color: #fff;
+        }
+
+        .highlight-number {
+            font-weight: bold;
+            color: #4af;
+            font-size: 16px;
+        }
+
+        .highlight-critical {
+            font-weight: bold;
+            color: #ff6b6b;
+        }
+
+        .highlight-success {
+            font-weight: bold;
+            color: #51cf66;
+        }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <button class="toggle-btn" onclick="toggleSidebar()">☰</button>
+        
+        <div class="sidebar" id="sidebar">
+            <h5 class="sidebar-header">Upload Data</h5>
+            <div class="file-upload-section">
+                <div class="file-input-wrapper">
+                    <input type="file" id="excelFile" accept=".xlsx,.xls" onchange="handleFileUpload(event)">
+                    <label for="excelFile" class="file-input-label">📁 Upload Excel File</label>
+                </div>
+                <div class="file-status" id="fileStatus">No file loaded</div>
+            </div>
+
+            <h5 class="sidebar-header">Item</h5>
+            <div class="toggle-radio">
+                <input type="radio" name="itemType" id="itemCode" value="code" checked>
+                <label for="itemCode">Item Code</label>
+                <input type="radio" name="itemType" id="itemName" value="name">
+                <label for="itemName">Item Name</label>
+            </div>
+
+            <div class="items-container" id="itemsContainer">
+                <div class="sidebar-link">Load Excel file to see items</div>
+            </div>
+
+            <div class="download-section">
+                <button class="download-link" onclick="downloadExcelFile()">📥 Download Stock History</button>
+            </div>
+        </div>
+
+        <div class="content" id="mainContent">
+            <div class="loading">
+                Upload an Excel file to begin
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let rawData = [];
+        let processedData = [];
+        let currentItem = "All Item Code";
+        let currentItemType = "code";
+        let sidebarCollapsed = false;
+
+        // Excel file name (hidden in JavaScript)
+        const EXCEL_FILE_NAME = "In-Out-Stock-History-sample.xlsx";
+        const INITIAL_DATA_FILE = "chart_data.xlsx";
+        
+        // Auto-load initial data on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            loadInitialData();
+        });
+        
+        // Load initial data function
+        function loadInitialData() {
+            const fileStatus = document.getElementById('fileStatus');
+            fileStatus.textContent = 'Loading initial data...';
+            
+            fetch(INITIAL_DATA_FILE)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Initial data file not found');
+                    }
+                    return response.arrayBuffer();
+                })
+                .then(data => {
+                    try {
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        
+                        // Read first sheet
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        rawData = XLSX.utils.sheet_to_json(firstSheet);
+                        
+                        processData();
+                        populateItemsList();
+                        updateDashboard();
+                        
+                        fileStatus.textContent = `✓ chart_data.xlsx (${rawData.length} rows)`;
+                    } catch (error) {
+                        console.error('Error processing initial data:', error);
+                        fileStatus.textContent = '✗ Error loading initial data';
+                    }
+                })
+                .catch(error => {
+                    console.error('Initial data load error:', error);
+                    fileStatus.textContent = 'No initial data - Please upload Excel file';
+                });
+        }
+        
+        // Download function
+        function downloadExcelFile() {
+            // Fetch the file and trigger download
+            fetch(EXCEL_FILE_NAME)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('File not found');
+                    }
+                    return response.blob();
+                })
+                .then(blob => {
+                    // Create download link
+                    const link = document.createElement('a');
+                    const url = URL.createObjectURL(blob);
+                    link.href = url;
+                    link.download = "In-Out-Stock-History-Sample.xlsx";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                })
+                .catch(error => {
+                    alert('Download file not found. Please make sure the Excel file is uploaded to the server.');
+                    console.error('Download error:', error);
+                });
+        }
+
+        // Vertical crosshair plugin for line charts
+        const crosshairPlugin = {
+            id: 'crosshair',
+            afterDraw: (chart) => {
+                if (chart.tooltip?._active?.length) {
+                    const ctx = chart.ctx;
+                    const activePoint = chart.tooltip._active[0];
+                    const x = activePoint.element.x;
+                    const topY = chart.scales.y.top;
+                    const bottomY = chart.scales.y.bottom;
+
+                    // Draw vertical line
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(x, topY);
+                    ctx.lineTo(x, bottomY);
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                    ctx.setLineDash([5, 5]);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+        };
+
+        // Register the plugin
+        Chart.register(crosshairPlugin);
+
+        // Toggle sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebarCollapsed = !sidebarCollapsed;
+            sidebar.classList.toggle('collapsed', sidebarCollapsed);
+        }
+
+        // Handle file upload
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const fileStatus = document.getElementById('fileStatus');
+            fileStatus.textContent = 'Loading...';
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Read first sheet
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    rawData = XLSX.utils.sheet_to_json(firstSheet);
+                    
+                    processData();
+                    populateItemsList();
+                    updateDashboard();
+                    
+                    fileStatus.textContent = `✓ ${file.name} (${rawData.length} rows)`;
+                } catch (error) {
+                    console.error('Error reading file:', error);
+                    fileStatus.textContent = '✗ Error reading file';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Process raw data
+        function processData() {
+            processedData = rawData.map(row => {
+                const date = parseDate(row['Operation Date']);
+                return {
+                    itemCode: row['Item Code'],
+                    itemName: row['Item Name'],
+                    ownerCode: row['Owner Code'],
+                    category: row['Rcv So Flag'], // In/Out/Stock
+                    qty: parseFloat(row['Inventory Qty']) || 0,
+                    date: date,
+                    year: date ? date.getFullYear() : null,
+                    month: date ? formatMonth(date) : null,
+                    week: date ? formatWeek(date) : null
+                };
+            }).filter(row => row.date !== null);
+            
+            // Apply forward fill to Stock data
+            processedData = forwardFillStockData(processedData);
+        }
+        
+        // Forward fill Stock data - fills in missing dates with last known stock value
+        function forwardFillStockData(data) {
+            // Separate Stock data from In/Out data
+            const stockData = data.filter(row => row.category === 'Stock');
+            const inOutData = data.filter(row => row.category !== 'Stock');
+            
+            if (stockData.length === 0) return data;
+            
+            // Find global max date across ALL data
+            const allDates = data.map(row => row.date);
+            const globalMaxDate = new Date(Math.max(...allDates));
+            
+            // Group stock by item
+            const itemGroups = {};
+            stockData.forEach(row => {
+                const itemKey = `${row.ownerCode}_${row.itemCode}`;
+                if (!itemGroups[itemKey]) {
+                    itemGroups[itemKey] = [];
+                }
+                itemGroups[itemKey].push(row);
+            });
+            
+            // Forward fill each item to global max date
+            const filledStockData = [];
+            Object.values(itemGroups).forEach(itemStock => {
+                // Sort by date
+                itemStock.sort((a, b) => a.date - b.date);
+                
+                const firstDate = itemStock[0].date;
+                const lastDate = globalMaxDate; // Use global max date instead of item's last date
+                
+                // Create map of existing dates
+                const stockMap = new Map();
+                itemStock.forEach(row => {
+                    const dateKey = row.date.toISOString().split('T')[0];
+                    stockMap.set(dateKey, row);
+                });
+                
+                // Fill in all dates from first transaction to global max date
+                const currentDate = new Date(firstDate);
+                let lastStockValue = 0;
+                
+                while (currentDate <= lastDate) {
+                    const dateKey = currentDate.toISOString().split('T')[0];
+                    
+                    if (stockMap.has(dateKey)) {
+                        const existingRow = stockMap.get(dateKey);
+                        lastStockValue = existingRow.qty;
+                        filledStockData.push(existingRow);
+                    } else {
+                        // Create filled row with last known stock value
+                        const template = itemStock[0];
+                        const filledDate = new Date(currentDate);
+                        filledStockData.push({
+                            itemCode: template.itemCode,
+                            itemName: template.itemName,
+                            ownerCode: template.ownerCode,
+                            category: 'Stock',
+                            qty: lastStockValue,
+                            date: filledDate,
+                            year: filledDate.getFullYear(),
+                            month: formatMonth(filledDate),
+                            week: formatWeek(filledDate)
+                        });
+                    }
+                    
+                    // Move to next day
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+            });
+            
+            // Combine In/Out with filled Stock data
+            return [...inOutData, ...filledStockData];
+        }
+
+        // Parse date from Excel serial or string
+        function parseDate(dateValue) {
+            if (!dateValue) return null;
+            
+            // If it's an Excel serial number
+            if (typeof dateValue === 'number') {
+                const excelEpoch = new Date(1899, 11, 30);
+                return new Date(excelEpoch.getTime() + dateValue * 24 * 60 * 60 * 1000);
+            }
+            
+            // Try parsing as string
+            const parsed = new Date(dateValue);
+            return isNaN(parsed) ? null : parsed;
+        }
+
+        // Format date to YYYY-MM
+        function formatMonth(date) {
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        // Format date to week
+        function formatWeek(date) {
+            const year = date.getFullYear();
+            const week = getWeekNumber(date);
+            return `${year}-W${String(week).padStart(2, '0')}`;
+        }
+
+        // Get ISO week number
+        function getWeekNumber(date) {
+            const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+            const dayNum = d.getUTCDay() || 7;
+            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+            return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+        }
+
+        // Populate items list
+        function populateItemsList() {
+            const container = document.getElementById('itemsContainer');
+            const itemType = document.querySelector('input[name="itemType"]:checked').value;
+            
+            const field = itemType === 'code' ? 'itemCode' : 'itemName';
+            const allLabel = itemType === 'code' ? 'All Item Code' : 'All Item Name';
+            
+            const uniqueItems = [...new Set(processedData.map(row => row[field]))].filter(Boolean).sort();
+            
+            container.innerHTML = '';
+            
+            // Add "All Items" option
+            const allDiv = document.createElement('div');
+            allDiv.className = 'sidebar-link' + (currentItem === allLabel ? ' active' : '');
+            allDiv.textContent = allLabel;
+            allDiv.onclick = () => selectItem(allLabel);
+            container.appendChild(allDiv);
+            
+            // Add individual items
+            uniqueItems.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'sidebar-link' + (currentItem === item ? ' active' : '');
+                div.textContent = item;
+                div.onclick = () => selectItem(item);
+                container.appendChild(div);
+            });
+        }
+
+        // Select item
+        function selectItem(item) {
+            currentItem = item;
+            populateItemsList();
+            updateDashboard();
+        }
+
+        // Handle item type change
+        document.querySelectorAll('input[name="itemType"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                currentItemType = this.value;
+                const newAllLabel = currentItemType === 'code' ? 'All Item Code' : 'All Item Name';
+                if (currentItem.startsWith('All')) {
+                    currentItem = newAllLabel;
+                }
+                populateItemsList();
+                updateDashboard();
+            });
+        });
+
+        // Filter data by selected item
+        function filterData() {
+            if (currentItem === 'All Item Code' || currentItem === 'All Item Name') {
+                return processedData;
+            }
+            
+            const field = currentItemType === 'code' ? 'itemCode' : 'itemName';
+            return processedData.filter(row => row[field] === currentItem);
+        }
+
+        // Update dashboard
+        function updateDashboard() {
+            const filtered = filterData();
+            const displayName = currentItem.startsWith('All') ? 'All Items' : currentItem;
+            
+            if (filtered.length === 0) {
+                document.getElementById('mainContent').innerHTML = `
+                    <div class="loading">No data available for ${displayName}</div>
+                `;
+                return;
+            }
+
+            // Clear existing charts
+            Chart.helpers.each(Chart.instances, (instance) => {
+                instance.destroy();
+            });
+
+            // Prepare data subsets
+            const inOutData = filtered.filter(row => row.category === 'In' || row.category === 'Out');
+            const stockData = filtered.filter(row => row.category === 'Stock');
+
+            // Create dashboard HTML
+            document.getElementById('mainContent').innerHTML = `
+                <div class="chart-grid">
+                    <div class="chart-row chart-row-2">
+                        <div class="chart-container">
+                            <canvas id="chartInOutMonthly"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chartInOutYearly"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-row chart-row-1">
+                        <div class="chart-container">
+                            <canvas id="chartDailyStock"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-row chart-row-even">
+                        <div class="chart-container">
+                            <canvas id="chartTurnover"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chartAging"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-row chart-row-1">
+                        <div class="chart-container" style="position: relative;">
+                            <div class="chart-indicator">
+                                <div class="indicator-title">Volume Distribution</div>
+                                <div class="indicator-bar-container">
+                                    <div class="indicator-bar-segment indicator-top10" id="volumeTop10Bar">
+                                        <span class="indicator-text" id="volumeTop10Text"></span>
+                                    </div>
+                                    <div class="indicator-bar-segment indicator-rest" id="volumeRestBar">
+                                        <span class="indicator-text" id="volumeRestText"></span>
+                                    </div>
+                                </div>
+                                <div class="indicator-legend">
+                                    <span class="legend-item"><span class="legend-color" style="background: #2ecc71;"></span> Top 10</span>
+                                    <span class="legend-item"><span class="legend-color" style="background: #95a5a6;"></span> Rest</span>
+                                </div>
+                            </div>
+                            <canvas id="chartTopItems"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-row chart-row-1">
+                        <div class="chart-container" style="position: relative;">
+                            <div class="chart-indicator">
+                                <div class="indicator-title">Stock Distribution</div>
+                                <div class="indicator-bar-container">
+                                    <div class="indicator-bar-segment indicator-top10" id="stockTop10Bar">
+                                        <span class="indicator-text" id="stockTop10Text"></span>
+                                    </div>
+                                    <div class="indicator-bar-segment indicator-rest" id="stockRestBar">
+                                        <span class="indicator-text" id="stockRestText"></span>
+                                    </div>
+                                </div>
+                                <div class="indicator-legend">
+                                    <span class="legend-item"><span class="legend-color" style="background: #3498db;"></span> Top 10</span>
+                                    <span class="legend-item"><span class="legend-color" style="background: #95a5a6;"></span> Rest</span>
+                                </div>
+                            </div>
+                            <canvas id="chartTopStock"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="aiAnalysis" class="ai-analysis-section">
+                    <div class="ai-analysis-header">
+                        <span class="ai-icon">🤖</span>
+                        <span class="ai-title">AI Inventory Analysis</span>
+                    </div>
+                    <div class="ai-analysis-content" id="aiAnalysisContent">
+                        <div class="analysis-loading">Analyzing your inventory data...</div>
+                    </div>
+                </div>
+            `;
+
+            // Generate AI Analysis
+            generateAIAnalysis(processedData, displayName);
+
+            // Create charts
+            createInOutMonthlyChart(inOutData, displayName);
+            createInOutYearlyChart(inOutData, displayName);
+            createDailyStockChart(stockData, displayName);
+            createTurnoverChart(inOutData, stockData, displayName);
+            createAgingChart(filtered, displayName);
+            createTopItemsChart(processedData, displayName);
+            createTopStockChart(processedData, displayName);
+        }
+
+        // Chart 1: In-Out Monthly
+        function createInOutMonthlyChart(data, displayName) {
+            if (data.length === 0) return;
+
+            const grouped = {};
+            data.forEach(row => {
+                const key = `${row.month}_${row.category}`;
+                if (!grouped[key]) {
+                    grouped[key] = { month: row.month, category: row.category, qty: 0 };
+                }
+                grouped[key].qty += row.qty;
+            });
+
+            const results = Object.values(grouped).sort((a, b) => a.month.localeCompare(b.month));
+            
+            // Get all months that have either In or Out data
+            const months = [...new Set(results.map(r => r.month))].sort();
+            
+            const inData = months.map(m => {
+                const found = results.find(r => r.month === m && r.category === 'In');
+                return found ? found.qty : null; // Use null to skip point but continue line
+            });
+            const outData = months.map(m => {
+                const found = results.find(r => r.month === m && r.category === 'Out');
+                return found ? found.qty : null; // Use null to skip point but continue line
+            });
+
+            new Chart(document.getElementById('chartInOutMonthly'), {
+                type: 'line',
+                data: {
+                    labels: months,
+                    datasets: [
+                        {
+                            label: 'In',
+                            data: inData,
+                            borderColor: '#2ecc71',
+                            backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                            tension: 0,
+                            pointRadius: 0,
+                            pointHoverRadius: 6,
+                            spanGaps: true,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Out',
+                            data: outData,
+                            borderColor: '#e74c3c',
+                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                            tension: 0,
+                            pointRadius: 0,
+                            pointHoverRadius: 6,
+                            spanGaps: true,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: getChartOptions(`Inventory In-Out (Monthly) - ${displayName}`, true)
+            });
+        }
+
+        // Chart 2: In-Out Yearly
+        function createInOutYearlyChart(data, displayName) {
+            if (data.length === 0) return;
+
+            const grouped = {};
+            data.forEach(row => {
+                const key = `${row.year}_${row.category}`;
+                if (!grouped[key]) {
+                    grouped[key] = { year: row.year, category: row.category, qty: 0 };
+                }
+                grouped[key].qty += row.qty;
+            });
+
+            const results = Object.values(grouped).sort((a, b) => a.year - b.year);
+            
+            const years = [...new Set(results.map(r => r.year))].sort();
+            const inData = years.map(y => {
+                const found = results.find(r => r.year === y && r.category === 'In');
+                return found ? found.qty : 0;
+            });
+            const outData = years.map(y => {
+                const found = results.find(r => r.year === y && r.category === 'Out');
+                return found ? found.qty : 0;
+            });
+
+            new Chart(document.getElementById('chartInOutYearly'), {
+                type: 'bar',
+                data: {
+                    labels: years,
+                    datasets: [
+                        {
+                            label: 'In',
+                            data: inData,
+                            backgroundColor: '#2ecc71'
+                        },
+                        {
+                            label: 'Out',
+                            data: outData,
+                            backgroundColor: '#e74c3c'
+                        }
+                    ]
+                },
+                options: getChartOptions(`Inventory In-Out (Yearly) - ${displayName}`)
+            });
+        }
+
+        // Chart 3: Daily Stock
+        function createDailyStockChart(data, displayName) {
+            if (data.length === 0) return;
+
+            let aggregatedData;
+            
+            if (currentItem === 'All Item Code' || currentItem === 'All Item Name') {
+                // Sum by date for all items
+                const grouped = {};
+                data.forEach(row => {
+                    const dateKey = row.date.toISOString().split('T')[0];
+                    if (!grouped[dateKey]) {
+                        grouped[dateKey] = { date: new Date(dateKey), qty: 0 };
+                    }
+                    grouped[dateKey].qty += row.qty;
+                });
+                aggregatedData = Object.values(grouped).sort((a, b) => a.date - b.date);
+            } else {
+                // Just sort for individual item
+                aggregatedData = [...data].sort((a, b) => a.date - b.date);
+            }
+
+            if (aggregatedData.length === 0) return;
+
+            // Create complete time series by filling missing dates
+            const minDate = new Date(aggregatedData[0].date);
+            const maxDate = new Date(aggregatedData[aggregatedData.length - 1].date);
+            
+            // Create a map for quick lookup
+            const dataMap = {};
+            aggregatedData.forEach(d => {
+                const dateKey = d.date.toISOString().split('T')[0];
+                dataMap[dateKey] = d.qty;
+            });
+
+            // Generate all dates between min and max
+            const completeDates = [];
+            const completeValues = [];
+            let currentDate = new Date(minDate);
+            let lastValue = 0;
+
+            while (currentDate <= maxDate) {
+                const dateKey = currentDate.toISOString().split('T')[0];
+                completeDates.push(dateKey);
+                
+                // If we have data for this date, use it; otherwise use last known value (forward fill)
+                if (dataMap[dateKey] !== undefined) {
+                    lastValue = dataMap[dateKey];
+                    completeValues.push(lastValue);
+                } else {
+                    completeValues.push(lastValue);
+                }
+                
+                // Move to next day
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            new Chart(document.getElementById('chartDailyStock'), {
+                type: 'line',
+                data: {
+                    labels: completeDates,
+                    datasets: [{
+                        label: 'Stock Quantity',
+                        data: completeValues,
+                        borderColor: '#3498db',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        tension: 0,
+                        fill: false,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        borderWidth: 2
+                    }]
+                },
+                options: getChartOptions(`Daily Stock Level - ${displayName}`, true)
+            });
+        }
+
+        // Chart 4: Inventory Turnover
+        function createTurnoverChart(inOutData, stockData, displayName) {
+            if (inOutData.length === 0 || stockData.length === 0) return;
+
+            const outData = inOutData.filter(row => row.category === 'Out');
+            
+            // Group out by month
+            const monthlyOut = {};
+            outData.forEach(row => {
+                if (!monthlyOut[row.month]) monthlyOut[row.month] = 0;
+                monthlyOut[row.month] += row.qty;
+            });
+
+            // Group stock by month
+            const monthlyStock = {};
+            stockData.forEach(row => {
+                if (!monthlyStock[row.month]) monthlyStock[row.month] = [];
+                monthlyStock[row.month].push(row.qty);
+            });
+
+            // Calculate average stock per month
+            const avgStock = {};
+            Object.keys(monthlyStock).forEach(month => {
+                const values = monthlyStock[month];
+                if (currentItem === 'All Item Code' || currentItem === 'All Item Name') {
+                    // Sum for all items
+                    avgStock[month] = values.reduce((a, b) => a + b, 0) / values.length;
+                } else {
+                    // Mean for individual item
+                    avgStock[month] = values.reduce((a, b) => a + b, 0) / values.length;
+                }
+            });
+
+            // Calculate turnover
+            const months = Object.keys(monthlyOut).sort();
+            const turnoverData = months.map(month => {
+                const out = monthlyOut[month] || 0;
+                const stock = avgStock[month] || 0;
+                return stock > 0 ? out / stock : 0;
+            });
+
+            new Chart(document.getElementById('chartTurnover'), {
+                type: 'line',
+                data: {
+                    labels: months,
+                    datasets: [{
+                        label: 'Turnover Ratio',
+                        data: turnoverData,
+                        borderColor: '#9b59b6',
+                        backgroundColor: 'rgba(155, 89, 182, 0.1)',
+                        tension: 0,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        borderWidth: 2
+                    }]
+                },
+                options: getChartOptions(`Inventory Turnover (Monthly) - ${displayName}`, true)
+            });
+        }
+
+        // Chart 5: Stock Aging (FIFO)
+        function createAgingChart(data, displayName) {
+            const inData = data.filter(row => row.category === 'In');
+            const stockData = data.filter(row => row.category === 'Stock');
+
+            if (inData.length === 0 || stockData.length === 0) return;
+
+            let currentStock;
+            if (currentItem === 'All Item Code' || currentItem === 'All Item Name') {
+                // Group by owner and item, get last stock
+                const grouped = {};
+                stockData.forEach(row => {
+                    const key = `${row.ownerCode}_${row.itemCode}`;
+                    if (!grouped[key] || row.date > grouped[key].date) {
+                        grouped[key] = row;
+                    }
+                });
+                currentStock = Object.values(grouped);
+            } else {
+                // Get last stock record
+                const sorted = [...stockData].sort((a, b) => b.date - a.date);
+                currentStock = sorted.length > 0 ? [sorted[0]] : [];
+            }
+
+            const agingData = [];
+
+            currentStock.forEach(stockRow => {
+                let remainingQty = stockRow.qty;
+                if (remainingQty <= 0) return;
+
+                const stockDate = stockRow.date;
+
+                // Filter IN transactions for this item
+                let relevantIn;
+                if (currentItem === 'All Item Code' || currentItem === 'All Item Name') {
+                    relevantIn = inData.filter(row => 
+                        row.ownerCode === stockRow.ownerCode && 
+                        row.itemCode === stockRow.itemCode
+                    );
+                } else {
+                    relevantIn = inData;
+                }
+
+                // Sort by date descending (FIFO - oldest first, but we match from newest)
+                relevantIn = relevantIn.sort((a, b) => b.date - a.date);
+
+                relevantIn.forEach(inRow => {
+                    if (remainingQty <= 0) return;
+
+                    const inQty = inRow.qty;
+                    const useQty = Math.min(inQty, remainingQty);
+                    remainingQty -= useQty;
+
+                    const agingDays = Math.floor((stockDate - inRow.date) / (1000 * 60 * 60 * 24));
+
+                    agingData.push({
+                        qty: useQty,
+                        agingDays: agingDays
+                    });
+                });
+            });
+
+            if (agingData.length === 0) return;
+
+            // Create aging buckets (30-day intervals) - only for non-zero quantities
+            const bucketSize = 30;
+            const buckets = {};
+
+            // Only create buckets when we have data (don't pre-create empty buckets)
+            agingData.forEach(item => {
+                const bucketIndex = Math.floor(item.agingDays / bucketSize);
+                const label = `${bucketIndex * bucketSize + 1}-${(bucketIndex + 1) * bucketSize} days`;
+                if (!buckets[label]) {
+                    buckets[label] = 0;
+                }
+                buckets[label] += item.qty;
+            });
+
+            // Filter out zero-quantity buckets and sort by starting day
+            const filteredBuckets = Object.entries(buckets)
+                .filter(([label, qty]) => qty > 0)
+                .sort((a, b) => {
+                    const aStart = parseInt(a[0].split('-')[0]);
+                    const bStart = parseInt(b[0].split('-')[0]);
+                    return aStart - bStart;
+                });
+
+            const labels = filteredBuckets.map(([label, qty]) => label);
+            const values = filteredBuckets.map(([label, qty]) => qty);
+
+            new Chart(document.getElementById('chartAging'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Inventory Quantity',
+                        data: values,
+                        backgroundColor: '#e67e22'
+                    }]
+                },
+                options: getChartOptions(`Stock Aging (FIFO) - ${displayName}`)
+            });
+        }
+
+        // Chart 6: Top Items by Volume (Last 12 Months of Data)
+        function createTopItemsChart(allData, displayName) {
+            console.log('createTopItemsChart called with', allData.length, 'rows');
+            
+            // Find the latest date in the dataset
+            const inOutData = allData.filter(row => row.category === 'In' || row.category === 'Out');
+            
+            if (inOutData.length === 0) {
+                console.log('No In/Out data available');
+                return;
+            }
+
+            const dates = inOutData.map(row => row.date).filter(d => d);
+            const maxDate = new Date(Math.max(...dates));
+            const minDate = new Date(Math.min(...dates));
+            
+            console.log('Data date range:', minDate, 'to', maxDate);
+
+            // Get 12 months before the latest date in the data
+            const twelveMonthsAgo = new Date(maxDate);
+            twelveMonthsAgo.setMonth(maxDate.getMonth() - 12);
+
+            console.log('Using date range:', twelveMonthsAgo, 'to', maxDate);
+
+            // Filter data for last 12 months of available data (In and Out only)
+            const last12MonthsData = inOutData.filter(row => {
+                return row.date >= twelveMonthsAgo && row.date <= maxDate;
+            });
+
+            console.log('Last 12 months data:', last12MonthsData.length, 'rows');
+
+            if (last12MonthsData.length === 0) {
+                console.log('No data in last 12 months of dataset');
+                return;
+            }
+
+            // Group by item name/code and category
+            const itemVolumes = {};
+            
+            last12MonthsData.forEach(row => {
+                // Use itemCode or itemName based on current selection
+                const itemKey = currentItemType === 'code' ? (row.itemCode || row.itemName) : (row.itemName || row.itemCode);
+                if (!itemKey) return;
+                
+                if (!itemVolumes[itemKey]) {
+                    itemVolumes[itemKey] = { in: 0, out: 0 };
+                }
+                
+                if (row.category === 'In') {
+                    itemVolumes[itemKey].in += row.qty;
+                } else if (row.category === 'Out') {
+                    itemVolumes[itemKey].out += row.qty;
+                }
+            });
+
+            console.log('Item volumes:', itemVolumes);
+
+            // Calculate total volume (In + Out) and sort
+            const itemsArray = Object.entries(itemVolumes).map(([name, volumes]) => ({
+                name: name,
+                in: volumes.in,
+                out: volumes.out,
+                total: volumes.in + volumes.out
+            }));
+
+            // Sort by total volume and get top 10
+            itemsArray.sort((a, b) => b.total - a.total);
+            const topItems = itemsArray.slice(0, 10);
+            const restItems = itemsArray.slice(10);
+
+            // Calculate totals for indicator
+            const top10Total = topItems.reduce((sum, item) => sum + item.total, 0);
+            const restTotal = restItems.reduce((sum, item) => sum + item.total, 0);
+            const grandTotal = top10Total + restTotal;
+            
+            const top10Percent = grandTotal > 0 ? (top10Total / grandTotal * 100) : 0;
+            const restPercent = grandTotal > 0 ? (restTotal / grandTotal * 100) : 0;
+
+            // Update indicator bars
+            const volumeTop10Bar = document.getElementById('volumeTop10Bar');
+            const volumeRestBar = document.getElementById('volumeRestBar');
+            const volumeTop10Text = document.getElementById('volumeTop10Text');
+            const volumeRestText = document.getElementById('volumeRestText');
+
+            if (volumeTop10Bar && volumeRestBar) {
+                volumeTop10Bar.style.width = `${top10Percent}%`;
+                volumeRestBar.style.width = `${restPercent}%`;
+                
+                if (volumeTop10Text) {
+                    volumeTop10Text.textContent = `${top10Total.toLocaleString()} (${top10Percent.toFixed(1)}%)`;
+                }
+                if (volumeRestText && restTotal > 0) {
+                    volumeRestText.textContent = `${restTotal.toLocaleString()} (${restPercent.toFixed(1)}%)`;
+                }
+            }
+
+            console.log('Top items:', topItems);
+            console.log('Indicator - Top 10:', top10Total, top10Percent.toFixed(1) + '%');
+            console.log('Indicator - Rest:', restTotal, restPercent.toFixed(1) + '%');
+
+            if (topItems.length === 0) {
+                console.log('No top items found');
+                return;
+            }
+
+            // Truncate item names to 12 characters
+            const labels = topItems.map(item => item.name.length > 12 ? item.name.substring(0, 12) + '...' : item.name);
+            const inData = topItems.map(item => item.in);
+            const outData = topItems.map(item => item.out);
+
+            console.log('Creating chart with labels:', labels);
+
+            // Format date range for title
+            const startMonth = twelveMonthsAgo.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+            const endMonth = maxDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+
+            new Chart(document.getElementById('chartTopItems'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'In',
+                            data: inData,
+                            backgroundColor: '#2ecc71'
+                        },
+                        {
+                            label: 'Out',
+                            data: outData,
+                            backgroundColor: '#e74c3c'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    onClick: (event, activeElements) => {
+                        if (activeElements.length > 0) {
+                            const index = activeElements[0].index;
+                            const clickedItem = topItems[index].name;
+                            
+                            // Update current item and refresh dashboard
+                            currentItem = clickedItem;
+                            
+                            // Update sidebar selection
+                            const links = document.querySelectorAll('.sidebar-link');
+                            links.forEach(link => {
+                                link.classList.remove('active');
+                                if (link.textContent === clickedItem) {
+                                    link.classList.add('active');
+                                }
+                            });
+                            
+                            // Update dashboard with selected item
+                            updateDashboard();
+                            
+                            // Scroll the content area to top to show updated charts
+                            setTimeout(() => {
+                                const contentDiv = document.getElementById('mainContent');
+                                if (contentDiv) {
+                                    contentDiv.scrollTop = 0;
+                                }
+                            }, 150);
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Top 10 Items by Volume (${startMonth} - ${endMonth})`,
+                            color: '#ff9800',
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            }
+                        },
+                        legend: {
+                            labels: {
+                                color: 'white'
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    // Show full name in tooltip
+                                    const index = tooltipItems[0].dataIndex;
+                                    return topItems[index].name;
+                                },
+                                footer: function() {
+                                    return 'Click to view details';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: 'white',
+                                autoSkip: false,
+                                maxRotation: 45,
+                                minRotation: 45
+                            },
+                            grid: {
+                                display: false
+                            },
+                            border: {
+                                color: 'rgba(255, 255, 255, 0.8)',
+                                width: 2
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                color: 'white'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.5)',
+                                lineWidth: 2
+                            },
+                            border: {
+                                color: 'rgba(255, 255, 255, 0.8)',
+                                width: 2
+                            }
+                        }
+                    }
+                }
+            });
+
+            console.log('Chart created successfully');
+        }
+
+        // Chart 7: Top 10 Items by Balance Stock
+        function createTopStockChart(allData, displayName) {
+            console.log('createTopStockChart called with', allData.length, 'rows');
+            
+            // Get only stock data
+            const stockData = allData.filter(row => row.category === 'Stock');
+            
+            if (stockData.length === 0) {
+                console.log('No stock data available');
+                return;
+            }
+
+            // Get the latest stock for each item
+            const latestStock = {};
+            
+            stockData.forEach(row => {
+                // Use itemCode or itemName based on current selection
+                const itemKey = currentItemType === 'code' ? (row.itemCode || row.itemName) : (row.itemName || row.itemCode);
+                if (!itemKey) return;
+                
+                // Keep only the latest date for each item
+                if (!latestStock[itemKey] || row.date > latestStock[itemKey].date) {
+                    latestStock[itemKey] = {
+                        name: itemKey,
+                        qty: row.qty,
+                        date: row.date
+                    };
+                }
+            });
+
+            console.log('Latest stock:', latestStock);
+
+            // Convert to array and filter out zero/negative stock
+            const stockArray = Object.values(latestStock)
+                .filter(item => item.qty > 0)
+                .sort((a, b) => b.qty - a.qty);
+
+            const topStock = stockArray.slice(0, 10);
+            const restStock = stockArray.slice(10);
+
+            // Calculate totals for indicator
+            const top10StockTotal = topStock.reduce((sum, item) => sum + item.qty, 0);
+            const restStockTotal = restStock.reduce((sum, item) => sum + item.qty, 0);
+            const grandStockTotal = top10StockTotal + restStockTotal;
+            
+            const top10StockPercent = grandStockTotal > 0 ? (top10StockTotal / grandStockTotal * 100) : 0;
+            const restStockPercent = grandStockTotal > 0 ? (restStockTotal / grandStockTotal * 100) : 0;
+
+            // Update indicator bars
+            const stockTop10Bar = document.getElementById('stockTop10Bar');
+            const stockRestBar = document.getElementById('stockRestBar');
+            const stockTop10Text = document.getElementById('stockTop10Text');
+            const stockRestText = document.getElementById('stockRestText');
+
+            if (stockTop10Bar && stockRestBar) {
+                stockTop10Bar.style.width = `${top10StockPercent}%`;
+                stockRestBar.style.width = `${restStockPercent}%`;
+                
+                if (stockTop10Text) {
+                    stockTop10Text.textContent = `${top10StockTotal.toLocaleString()} (${top10StockPercent.toFixed(1)}%)`;
+                }
+                if (stockRestText && restStockTotal > 0) {
+                    stockRestText.textContent = `${restStockTotal.toLocaleString()} (${restStockPercent.toFixed(1)}%)`;
+                }
+            }
+
+            console.log('Top 10 stock items:', topStock);
+            console.log('Stock Indicator - Top 10:', top10StockTotal, top10StockPercent.toFixed(1) + '%');
+            console.log('Stock Indicator - Rest:', restStockTotal, restStockPercent.toFixed(1) + '%');
+
+            if (topStock.length === 0) {
+                console.log('No items with positive stock');
+                return;
+            }
+
+            // Truncate item names to 12 characters
+            const labels = topStock.map(item => item.name.length > 12 ? item.name.substring(0, 12) + '...' : item.name);
+            const stockValues = topStock.map(item => item.qty);
+
+            console.log('Creating stock chart with labels:', labels);
+
+            new Chart(document.getElementById('chartTopStock'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Balance Stock',
+                        data: stockValues,
+                        backgroundColor: '#3498db'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: (event, activeElements) => {
+                        if (activeElements.length > 0) {
+                            const index = activeElements[0].index;
+                            const clickedItem = topStock[index].name;
+                            
+                            // Update current item and refresh dashboard
+                            currentItem = clickedItem;
+                            
+                            // Update sidebar selection
+                            const links = document.querySelectorAll('.sidebar-link');
+                            links.forEach(link => {
+                                link.classList.remove('active');
+                                if (link.textContent === clickedItem) {
+                                    link.classList.add('active');
+                                }
+                            });
+                            
+                            // Update dashboard with selected item
+                            updateDashboard();
+                            
+                            // Scroll the content area to top to show updated charts
+                            setTimeout(() => {
+                                const contentDiv = document.getElementById('mainContent');
+                                if (contentDiv) {
+                                    contentDiv.scrollTop = 0;
+                                }
+                            }, 150);
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Top 10 Items by Balance Stock',
+                            color: '#ff9800',
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            }
+                        },
+                        legend: {
+                            labels: {
+                                color: 'white'
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    // Show full name in tooltip
+                                    const index = tooltipItems[0].dataIndex;
+                                    return topStock[index].name;
+                                },
+                                footer: function() {
+                                    return 'Click to view details';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: 'white',
+                                autoSkip: false,
+                                maxRotation: 45,
+                                minRotation: 45
+                            },
+                            grid: {
+                                display: false
+                            },
+                            border: {
+                                color: 'rgba(255, 255, 255, 0.8)',
+                                width: 2
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                color: 'white'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.5)',
+                                lineWidth: 2
+                            },
+                            border: {
+                                color: 'rgba(255, 255, 255, 0.8)',
+                                width: 2
+                            }
+                        }
+                    }
+                }
+            });
+
+            console.log('Stock chart created successfully');
+        }
+
+        // Generate AI Analysis
+        function generateAIAnalysis(allData, displayName) {
+            const container = document.getElementById('aiAnalysisContent');
+            if (!container) {
+                console.error('AI Analysis container not found');
+                return;
+            }
+            
+            try {
+                console.log('Starting AI Analysis with', allData.length, 'rows');
+                
+                // Safety check
+                if (!allData || allData.length === 0) {
+                    container.innerHTML = '<div class="insight-text">No data available for analysis.</div>';
+                    return;
+                }
+                
+                // Get date range - simplified
+                let maxDate = new Date(0);
+                let minDate = new Date();
+                
+                allData.forEach(row => {
+                    if (row.date && row.date instanceof Date && !isNaN(row.date)) {
+                        if (row.date > maxDate) maxDate = row.date;
+                        if (row.date < minDate) minDate = row.date;
+                    }
+                });
+                
+                if (maxDate.getTime() === 0 || minDate.getTime() === new Date().getTime()) {
+                    container.innerHTML = '<div class="insight-text">Invalid date data in dataset.</div>';
+                    return;
+                }
+                
+                const twelveMonthsAgo = new Date(maxDate);
+                twelveMonthsAgo.setMonth(maxDate.getMonth() - 12);
+                
+                console.log('Date range:', minDate, 'to', maxDate);
+                
+                // Calculate movement by item (last 12 months)
+                const itemMovement = {};
+                allData.forEach(row => {
+                    if (!row.date || row.date < twelveMonthsAgo) return;
+                    if (row.category !== 'In' && row.category !== 'Out') return;
+                    
+                    const key = currentItemType === 'code' ? (row.itemCode || 'Unknown') : (row.itemName || 'Unknown');
+                    itemMovement[key] = (itemMovement[key] || 0) + (row.qty || 0);
+                });
+                
+                console.log('Item movement calculated:', Object.keys(itemMovement).length, 'items');
+                
+                // Get latest stock per item
+                const latestStock = {};
+                allData.forEach(row => {
+                    if (row.category !== 'Stock') return;
+                    
+                    const key = currentItemType === 'code' ? (row.itemCode || 'Unknown') : (row.itemName || 'Unknown');
+                    
+                    // Keep only if this is the first entry or a later date
+                    if (!latestStock[key] || !latestStock[key].date || (row.date && row.date >= latestStock[key].date)) {
+                        latestStock[key] = { qty: row.qty || 0, date: row.date };
+                    }
+                });
+                
+                console.log('Latest stock calculated:', Object.keys(latestStock).length, 'items');
+                
+                // Sort movement
+                const movementArray = Object.entries(itemMovement)
+                    .map(([name, qty]) => ({ name, qty }))
+                    .sort((a, b) => b.qty - a.qty);
+                
+                // Analysis
+                const allItemKeys = new Set([...Object.keys(itemMovement), ...Object.keys(latestStock)]);
+                const totalItems = allItemKeys.size;
+                const itemsWithStock = Object.values(latestStock).filter(s => s.qty > 0).length;
+                const itemsWithoutStock = Object.keys(latestStock).length - itemsWithStock;
+                
+                const fastMovers = movementArray.slice(0, 10);
+                const slowMovers = movementArray.length > 10 ? movementArray.slice(-10).reverse() : [];
+                
+                // Get top 10 items by balance stock
+                const stockArray = Object.entries(latestStock)
+                    .map(([name, data]) => ({ name, qty: data.qty }))
+                    .filter(item => item.qty > 0)
+                    .sort((a, b) => b.qty - a.qty);
+                
+                const topStock = stockArray.slice(0, 10);
+                
+                // Calculate percentages
+                const totalMovement = movementArray.reduce((sum, item) => sum + item.qty, 0);
+                const totalStockAllItems = stockArray.reduce((sum, item) => sum + item.qty, 0);
+                
+                // Stock Aging Analysis (FIFO) - Calculate overall totals
+                const overallAgingBuckets = {
+                    '0-30': 0,
+                    '31-60': 0,
+                    '61-90': 0,
+                    '91-180': 0,
+                    '180+': 0
+                };
+                
+                const stockAgingByItem = {};
+                allData.forEach(row => {
+                    if (row.category !== 'Stock') return;
+                    const key = currentItemType === 'code' ? (row.itemCode || 'Unknown') : (row.itemName || 'Unknown');
+                    if (!stockAgingByItem[key]) {
+                        stockAgingByItem[key] = { items: [], latestDate: null };
+                    }
+                    stockAgingByItem[key].items.push({ qty: row.qty || 0, date: row.date });
+                    if (!stockAgingByItem[key].latestDate || row.date > stockAgingByItem[key].latestDate) {
+                        stockAgingByItem[key].latestDate = row.date;
+                    }
+                });
+                
+                // Calculate aging buckets for all items with stock
+                Object.entries(stockAgingByItem).forEach(([itemName, data]) => {
+                    const latestStock = data.items[data.items.length - 1];
+                    if (!latestStock || latestStock.qty <= 0) return;
+                    
+                    const stockDate = data.latestDate;
+                    const inTransactions = allData.filter(row => {
+                        const key = currentItemType === 'code' ? (row.itemCode || 'Unknown') : (row.itemName || 'Unknown');
+                        return key === itemName && row.category === 'In';
+                    }).sort((a, b) => b.date - a.date);
+                    
+                    let remainingQty = latestStock.qty;
+                    inTransactions.forEach(inRow => {
+                        if (remainingQty <= 0) return;
+                        
+                        const useQty = Math.min(inRow.qty || 0, remainingQty);
+                        const agingDays = Math.floor((stockDate - inRow.date) / (1000 * 60 * 60 * 24));
+                        
+                        if (agingDays <= 30) overallAgingBuckets['0-30'] += useQty;
+                        else if (agingDays <= 60) overallAgingBuckets['31-60'] += useQty;
+                        else if (agingDays <= 90) overallAgingBuckets['61-90'] += useQty;
+                        else if (agingDays <= 180) overallAgingBuckets['91-180'] += useQty;
+                        else overallAgingBuckets['180+'] += useQty;
+                        
+                        remainingQty -= useQty;
+                    });
+                });
+                
+                const totalAgingStock = Object.values(overallAgingBuckets).reduce((sum, qty) => sum + qty, 0);
+                
+                // Dead Stock Analysis - No movement for 365+ days
+                const oneYearAgo = new Date(maxDate);
+                oneYearAgo.setDate(oneYearAgo.getDate() - 365);
+                
+                const itemLastMovement = {};
+                allData.forEach(row => {
+                    if (row.category !== 'In' && row.category !== 'Out') return;
+                    const key = currentItemType === 'code' ? (row.itemCode || 'Unknown') : (row.itemName || 'Unknown');
+                    
+                    if (!itemLastMovement[key] || row.date > itemLastMovement[key]) {
+                        itemLastMovement[key] = row.date;
+                    }
+                });
+                
+                const deadStockItems = [];
+                Object.entries(latestStock).forEach(([itemName, data]) => {
+                    if (data.qty <= 0) return;
+                    
+                    const lastMovement = itemLastMovement[itemName];
+                    
+                    // If no movement found or last movement was over 365 days ago
+                    if (!lastMovement || lastMovement < oneYearAgo) {
+                        const daysSinceMovement = lastMovement ? 
+                            Math.floor((maxDate - lastMovement) / (1000 * 60 * 60 * 24)) : 
+                            999; // No movement found
+                        
+                        deadStockItems.push({
+                            name: itemName,
+                            qty: data.qty,
+                            daysSinceMovement: daysSinceMovement,
+                            lastMovement: lastMovement
+                        });
+                    }
+                });
+                
+                // Sort by quantity descending and get top 10
+                deadStockItems.sort((a, b) => b.qty - a.qty);
+                const topDeadStock = deadStockItems.slice(0, 10);
+                const totalDeadStockQty = deadStockItems.reduce((sum, item) => sum + item.qty, 0);
+                
+                // Items with no stock but had demand
+                const stockoutWithDemand = [];
+                movementArray.forEach(item => {
+                    if (latestStock[item.name] && latestStock[item.name].qty <= 0 && stockoutWithDemand.length < 10) {
+                        stockoutWithDemand.push(item);
+                    }
+                });
+                
+                // Total stock value
+                let totalStockQty = 0;
+                Object.values(latestStock).forEach(s => {
+                    totalStockQty += (s.qty || 0);
+                });
+                
+                const daysDiff = Math.round((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24));
+                
+                console.log('Analysis complete - generating HTML');
+                
+                // Generate HTML
+                let html = `
+                    <div class="insight-section">
+                        <div class="insight-title">📊 Overview</div>
+                        <div class="insight-text">
+                            I've analyzed your inventory data spanning <span class="highlight-number">${daysDiff}</span> days
+                            from ${minDate.toLocaleDateString()} to ${maxDate.toLocaleDateString()}.
+                            You're managing <span class="highlight-number">${totalItems}</span> items with a total current stock of 
+                            <span class="highlight-number">${totalStockQty.toLocaleString()}</span> units.
+                        </div>
+                        <div class="insight-text">
+                            Stock Status: <span class="highlight-success">${itemsWithStock} items in stock</span>, 
+                            <span class="highlight-critical">${itemsWithoutStock} items out of stock</span>.
+                        </div>
+                    </div>
+                `;
+                
+                // Fast movers
+                if (fastMovers.length > 0) {
+                    const fastMoversTotal = fastMovers.reduce((sum, item) => sum + item.qty, 0);
+                    const fastMoversPercent = totalMovement > 0 ? (fastMoversTotal / totalMovement * 100).toFixed(1) : 0;
+                    
+                    html += `
+                        <div class="insight-section">
+                            <div class="insight-title">🚀 Fast-Moving Items (Last 12 Months)</div>
+                            <div class="insight-text">
+                                These are your star performers with the highest activity. 
+                                Top ${fastMovers.length} represent <span class="highlight-number">${fastMoversPercent}%</span> of total movement 
+                                (<span class="highlight-number">${fastMoversTotal.toLocaleString()}</span> of ${totalMovement.toLocaleString()} units).
+                            </div>
+                            <div class="item-list">
+                                ${fastMovers.map((item, i) => {
+                                    const percent = totalMovement > 0 ? (item.qty / totalMovement * 100).toFixed(1) : 0;
+                                    return `<div class="item-list-item">${i + 1}. <strong>${item.name}</strong> - ${item.qty.toLocaleString()} units (<span class="highlight-success">${percent}%</span>)</div>`;
+                                }).join('')}
+                            </div>
+                            <div class="insight-recommendation">
+                                Ensure adequate safety stock for these high-velocity items to prevent stockouts. Consider negotiating better pricing with suppliers given the volume.
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Slow movers
+                if (slowMovers.length > 0) {
+                    const slowMoversTotal = slowMovers.reduce((sum, item) => sum + item.qty, 0);
+                    const slowMoversPercent = totalMovement > 0 ? (slowMoversTotal / totalMovement * 100).toFixed(1) : 0;
+                    
+                    html += `
+                        <div class="insight-section">
+                            <div class="insight-title">🐌 Slow-Moving Items (Last 12 Months)</div>
+                            <div class="insight-text">
+                                These items have minimal activity and may tie up capital. 
+                                Bottom ${slowMovers.length} represent only <span class="highlight-critical">${slowMoversPercent}%</span> of total movement 
+                                (<span class="highlight-number">${slowMoversTotal.toLocaleString()}</span> of ${totalMovement.toLocaleString()} units).
+                            </div>
+                            <div class="item-list">
+                                ${slowMovers.map((item, i) => {
+                                    const percent = totalMovement > 0 ? (item.qty / totalMovement * 100).toFixed(2) : 0;
+                                    return `<div class="item-list-item">${i + 1}. <strong>${item.name}</strong> - Only ${item.qty.toLocaleString()} units (<span class="highlight-critical">${percent}%</span>)</div>`;
+                                }).join('')}
+                            </div>
+                            <div class="insight-recommendation">
+                                Review if these items are still needed. Consider reducing stock levels or discontinuing slow movers to free up warehouse space and capital.
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Top 10 Balance Stock
+                if (topStock.length > 0) {
+                    const topStockTotal = topStock.reduce((sum, item) => sum + item.qty, 0);
+                    const topStockPercent = totalStockAllItems > 0 ? (topStockTotal / totalStockAllItems * 100).toFixed(1) : 0;
+                    
+                    html += `
+                        <div class="insight-section">
+                            <div class="insight-title">📦 Top 10 Items by Balance Stock</div>
+                            <div class="insight-text">
+                                These items hold the most inventory value. 
+                                Top ${topStock.length} represent <span class="highlight-number">${topStockPercent}%</span> of total stock 
+                                (<span class="highlight-number">${topStockTotal.toLocaleString()}</span> of ${totalStockAllItems.toLocaleString()} units).
+                            </div>
+                            <div class="item-list">
+                                ${topStock.map((item, i) => {
+                                    const percent = totalStockAllItems > 0 ? (item.qty / totalStockAllItems * 100).toFixed(1) : 0;
+                                    return `<div class="item-list-item">${i + 1}. <strong>${item.name}</strong> - ${item.qty.toLocaleString()} units in stock (<span class="highlight-number">${percent}%</span>)</div>`;
+                                }).join('')}
+                            </div>
+                            <div class="insight-recommendation">
+                                Monitor these high-value items closely. Consider ABC analysis to optimize inventory investment. High stock levels may indicate overordering or declining demand.
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Stock Aging Analysis - Overall Totals
+                if (totalStockQty > 0) {
+                    html += `
+                        <div class="insight-section">
+                            <div class="insight-title">⏳ Stock Aging Analysis (FIFO)</div>
+                            <div class="insight-text">
+                                Age distribution of your entire current inventory. Total stock analyzed: <span class="highlight-number">${totalStockQty.toLocaleString()}</span> units.
+                            </div>
+                            <div class="item-list">
+                                ${Object.entries(overallAgingBuckets)
+                                    .filter(([bucket, qty]) => qty > 0)
+                                    .map(([bucket, qty]) => {
+                                        const percent = totalStockQty > 0 ? (qty / totalStockQty * 100).toFixed(1) : 0;
+                                        const color = bucket === '0-30' ? 'highlight-success' : 
+                                                     bucket === '31-60' ? 'highlight-number' :
+                                                     bucket === '61-90' ? 'highlight-number' : 
+                                                     'highlight-critical';
+                                        const days = bucket === '180+' ? '180+ Days' : `${bucket} Days`;
+                                        return `<div class="item-list-item"><strong>${days}</strong>: <span class="${color}">${qty.toLocaleString()} units (${percent}%)</span></div>`;
+                                    }).join('')}
+                            </div>
+                            ${Object.values(overallAgingBuckets).reduce((sum, qty) => sum + qty, 0) < totalStockQty ? 
+                                `<div class="insight-text" style="font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 10px;">
+                                    Note: ${(totalStockQty - Object.values(overallAgingBuckets).reduce((sum, qty) => sum + qty, 0)).toLocaleString()} units could not be traced to In transactions (may be opening stock).
+                                </div>` : ''}
+                            <div class="insight-recommendation">
+                                ${overallAgingBuckets['180+'] > 0 ? 
+                                    `<span class="highlight-critical">ALERT:</span> ${overallAgingBuckets['180+'].toLocaleString()} units (${(overallAgingBuckets['180+'] / totalStockQty * 100).toFixed(1)}%) are over 180 days old! Consider markdowns or promotions to clear old stock.` :
+                                    'Good aging profile. Most stock is fresh. Continue monitoring to maintain healthy inventory turnover.'}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Dead Stock - No movement for 365+ days
+                if (topDeadStock.length > 0) {
+                    const deadStockPercent = totalStockAllItems > 0 ? (totalDeadStockQty / totalStockAllItems * 100).toFixed(1) : 0;
+                    
+                    html += `
+                        <div class="insight-section">
+                            <div class="insight-title">💀 Dead Stock Alert (No Movement 365+ Days)</div>
+                            <div class="insight-text">
+                                <span class="highlight-critical">CRITICAL:</span> These items have had NO movement for over 1 year! 
+                                Total dead stock: <span class="highlight-critical">${totalDeadStockQty.toLocaleString()} units (${deadStockPercent}% of inventory)</span> across ${deadStockItems.length} items.
+                            </div>
+                            <div class="item-list">
+                                ${topDeadStock.map((item, i) => {
+                                    const percent = totalStockAllItems > 0 ? (item.qty / totalStockAllItems * 100).toFixed(2) : 0;
+                                    const daysText = item.daysSinceMovement >= 999 ? 'No movement' : `${item.daysSinceMovement} days`;
+                                    const lastMoveText = item.lastMovement ? 
+                                        item.lastMovement.toLocaleDateString() : 
+                                        'No data';
+                                    
+                                    return `<div class="item-list-item">
+                                        ${i + 1}. <span class="highlight-critical"><strong>${item.name}</strong></span> - ${item.qty.toLocaleString()} units (${percent}%) | ${daysText} | Last: ${lastMoveText}
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                            <div class="insight-recommendation">
+                                <strong>URGENT ACTION REQUIRED:</strong> Dead stock ties up capital and warehouse space. Options: (1) Deep discounts/clearance sales, (2) Return to supplier if possible, (3) Donate for tax benefits, (4) Write-off and dispose. Review demand forecasting to prevent future dead stock.
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Critical: Stockout with demand
+                if (stockoutWithDemand.length > 0) {
+                    html += `
+                        <div class="insight-section">
+                            <div class="insight-title">⚠️ Critical: Out of Stock Items with Demand</div>
+                            <div class="insight-text">
+                                <span class="highlight-critical">URGENT ATTENTION NEEDED!</span> These items are currently out of stock but had significant movement in the last 12 months:
+                            </div>
+                            <div class="item-list">
+                                ${stockoutWithDemand.map((item, i) => 
+                                    `<div class="item-list-item">${i + 1}. <span class="highlight-critical">${item.name}</span> - ${item.qty.toLocaleString()} units moved (Currently: 0 in stock)</div>`
+                                ).join('')}
+                            </div>
+                            <div class="insight-recommendation">
+                                <strong>IMMEDIATE ACTION:</strong> Expedite purchase orders for these items. You're likely losing sales and customer satisfaction. Set up automatic reorder points to prevent future stockouts.
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Overall recommendation
+                html += `
+                    <div class="insight-section">
+                        <div class="insight-title">🎯 Key Recommendations</div>
+                        <div class="insight-text">
+                            1. <strong>Focus on Fast Movers:</strong> Your top 5 items represent significant business. Ensure continuous availability.<br>
+                            2. <strong>Optimize Slow Movers:</strong> Review demand patterns and consider reducing inventory levels.<br>
+                            3. <strong>Fix Stockouts:</strong> ${stockoutWithDemand.length > 0 ? `Address ${stockoutWithDemand.length} critical stockout(s) immediately.` : 'Great job maintaining stock availability!'}<br>
+                            4. <strong>Set Reorder Points:</strong> Implement automated reorder triggers based on historical demand patterns.<br>
+                            5. <strong>Regular Reviews:</strong> Conduct monthly ABC analysis to continuously optimize inventory levels.
+                        </div>
+                    </div>
+                `;
+                
+                container.innerHTML = html;
+                console.log('AI Analysis rendered successfully');
+                
+            } catch (error) {
+                console.error('Error generating AI analysis:', error);
+                console.error('Error stack:', error.stack);
+                container.innerHTML = `<div class="insight-text">Error generating analysis: ${error.message}<br><small>Check browser console (F12) for details.</small></div>`;
+            }
+        }
+
+        // Common chart options
+        function getChartOptions(title, showOnlyYear = false) {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: title,
+                        color: '#ff9800',
+                        font: {
+                            size: 16,
+                            weight: 'bold'
+                        }
+                    },
+                    legend: {
+                        labels: {
+                            color: 'white'
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            color: 'white',
+                            autoSkip: false,
+                            maxRotation: 0,
+                            minRotation: 0,
+                            callback: function(value, index, ticks) {
+                                if (showOnlyYear) {
+                                    const label = this.getLabelForValue(value);
+                                    // Extract year from date string (YYYY-MM-DD or YYYY-MM format)
+                                    const year = label.split('-')[0];
+                                    
+                                    // Show year at the first occurrence and then once per year
+                                    if (index === 0) {
+                                        return year;
+                                    }
+                                    
+                                    const prevLabel = this.getLabelForValue(ticks[index - 1].value);
+                                    const prevYear = prevLabel.split('-')[0];
+                                    
+                                    if (year !== prevYear) {
+                                        return year;
+                                    }
+                                    return '';
+                                }
+                                return this.getLabelForValue(value);
+                            }
+                        },
+                        grid: {
+                            display: false
+                        },
+                        border: {
+                            color: 'rgba(255, 255, 255, 0.8)',
+                            width: 2
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            color: 'white'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.5)',
+                            lineWidth: 2
+                        },
+                        border: {
+                            color: 'rgba(255, 255, 255, 0.8)',
+                            width: 2
+                        }
+                    }
+                }
+            };
+        }
+    </script>
+</body>
+</html>
