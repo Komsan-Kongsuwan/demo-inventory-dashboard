@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventory Dashboard</title>
     
+    <!-- Google Analytics 4 -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-D02S84NQLE"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-D02S84NQLE');
+    </script>
+    
     <!-- SheetJS for Excel reading -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
@@ -675,9 +684,28 @@
                     updateDashboard();
                     
                     fileStatus.textContent = `✓ ${file.name} (${rawData.length} rows)`;
+                    
+                    // Track file load event
+                    if (typeof gtag !== 'undefined') {
+                        gtag('event', 'file_loaded', {
+                            'event_category': 'data_management',
+                            'event_label': file.name,
+                            'value': rawData.length,
+                            'file_size_kb': Math.round(file.size / 1024),
+                            'file_type': file.name.split('.').pop()
+                        });
+                    }
                 } catch (error) {
                     console.error('Error reading file:', error);
                     fileStatus.textContent = '✗ Error reading file';
+                    
+                    // Track error
+                    if (typeof gtag !== 'undefined') {
+                        gtag('event', 'file_load_error', {
+                            'event_category': 'errors',
+                            'event_label': error.message
+                        });
+                    }
                 }
             };
             reader.readAsArrayBuffer(file);
@@ -878,6 +906,15 @@
         function updateDashboard() {
             const filtered = filterData();
             const displayName = currentItem.startsWith('All') ? 'All Items' : currentItem;
+            
+            // Track item selection
+            if (typeof gtag !== 'undefined') {
+                gtag('event', 'item_selected', {
+                    'event_category': 'navigation',
+                    'event_label': displayName,
+                    'value': filtered.length
+                });
+            }
             
             if (filtered.length === 0) {
                 document.getElementById('mainContent').innerHTML = `
@@ -2241,6 +2278,41 @@
                 }
             };
         }
+        
+        // Analytics: Track session duration and user activity
+        let sessionStartTime = Date.now();
+        let lastActivityTime = Date.now();
+        let isActive = true;
+        
+        // Track user activity
+        ['mousedown', 'keydown', 'scroll', 'touchstart'].forEach(event => {
+            document.addEventListener(event, () => {
+                lastActivityTime = Date.now();
+                if (!isActive) {
+                    isActive = true;
+                    sessionStartTime = Date.now();
+                }
+            }, true);
+        });
+        
+        // Check for inactivity (5 minutes)
+        setInterval(() => {
+            if (Date.now() - lastActivityTime > 5 * 60 * 1000) {
+                isActive = false;
+            }
+        }, 60000);
+        
+        // Track session end
+        window.addEventListener('beforeunload', () => {
+            if (typeof gtag !== 'undefined' && isActive) {
+                const duration = Math.round((Date.now() - sessionStartTime) / 1000);
+                gtag('event', 'session_end', {
+                    'event_category': 'engagement',
+                    'event_label': 'time_on_site',
+                    'value': duration
+                });
+            }
+        });
     </script>
 </body>
 </html>
