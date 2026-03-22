@@ -6,12 +6,12 @@
     <title>Inventory Dashboard</title>
     
     <!-- Google Analytics 4 -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-D02S84NQLE"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
-        gtag('config', 'G-D02S84NQLE');
+        gtag('config', 'G-XXXXXXXXXX');
     </script>
     
     <!-- SheetJS for Excel reading -->
@@ -506,9 +506,59 @@
             font-weight: bold;
             color: #51cf66;
         }
+        
+        /* Sample Data Banner */
+        .sample-banner {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+            border: 2px solid #60a5fa;
+            border-radius: 15px;
+            padding: 30px 50px;
+            z-index: 10000;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            max-width: 600px;
+            opacity: 1;
+            transition: opacity 1.5s ease-out;
+        }
+        
+        .sample-banner.fade-out {
+            opacity: 0;
+        }
+        
+        .sample-banner-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .sample-banner-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #93c5fd;
+            margin-bottom: 15px;
+        }
+        
+        .sample-banner-text {
+            font-size: 16px;
+            color: #e0e7ff;
+            line-height: 1.6;
+        }
     </style>
 </head>
 <body>
+    <!-- Sample Data Banner -->
+    <div class="sample-banner" id="sampleBanner">
+        <div class="sample-banner-icon">⚠️</div>
+        <div class="sample-banner-title">Sample Data</div>
+        <div class="sample-banner-text">
+            This visualization is for demo purposes only.<br>
+            Upload your own data file in the sidebar to visualize your Inventory.
+        </div>
+    </div>
+    
     <div class="layout">
         <button class="toggle-btn" onclick="toggleSidebar()">☰</button>
         
@@ -665,6 +715,12 @@
         function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
+            
+            // Hide sample data banner immediately when user uploads their own file
+            const banner = document.getElementById('sampleBanner');
+            if (banner) {
+                banner.style.display = 'none';
+            }
 
             const fileStatus = document.getElementById('fileStatus');
             fileStatus.textContent = 'Loading...';
@@ -2311,6 +2367,23 @@
                     'event_label': 'time_on_site',
                     'value': duration
                 });
+            }
+        });
+        
+        // Sample Data Banner - Fade out after 8 seconds
+        window.addEventListener('load', () => {
+            const banner = document.getElementById('sampleBanner');
+            if (banner) {
+                // Wait 8 seconds
+                setTimeout(() => {
+                    // Start fade out
+                    banner.classList.add('fade-out');
+                    
+                    // Remove from DOM after fade completes (1.5s transition)
+                    setTimeout(() => {
+                        banner.style.display = 'none';
+                    }, 1500);
+                }, 8000);
             }
         });
     </script>
