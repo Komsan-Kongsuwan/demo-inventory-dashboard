@@ -521,8 +521,14 @@
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
             text-align: center;
             max-width: 600px;
-            opacity: 1;
+            opacity: 0;
+            display: none;
             transition: opacity 1.5s ease-out;
+        }
+        
+        .sample-banner.show {
+            opacity: 1;
+            display: block;
         }
         
         .sample-banner.fade-out {
@@ -532,6 +538,7 @@
         .sample-banner-icon {
             font-size: 48px;
             margin-bottom: 15px;
+            color: #3b82f6;
         }
         
         .sample-banner-title {
@@ -551,7 +558,7 @@
 <body>
     <!-- Sample Data Banner -->
     <div class="sample-banner" id="sampleBanner">
-        <div class="sample-banner-icon">⚠️</div>
+        <div class="sample-banner-icon">ℹ️</div>
         <div class="sample-banner-title">Sample Data</div>
         <div class="sample-banner-text">
             This visualization is for demo purposes only.<br>
@@ -2370,20 +2377,26 @@
             }
         });
         
-        // Sample Data Banner - Fade out after 8 seconds
+        // Sample Data Banner - Delay 2s, show for 5s, then fade out
         window.addEventListener('load', () => {
             const banner = document.getElementById('sampleBanner');
             if (banner) {
-                // Wait 8 seconds
+                // Wait 2 seconds before showing (let data load)
                 setTimeout(() => {
-                    // Start fade out
-                    banner.classList.add('fade-out');
+                    banner.classList.add('show');
                     
-                    // Remove from DOM after fade completes (1.5s transition)
+                    // Display for 5 seconds
                     setTimeout(() => {
-                        banner.style.display = 'none';
-                    }, 1500);
-                }, 8000);
+                        // Start fade out
+                        banner.classList.add('fade-out');
+                        
+                        // Remove from DOM after fade completes (1.5s transition)
+                        setTimeout(() => {
+                            banner.style.display = 'none';
+                            banner.classList.remove('show', 'fade-out');
+                        }, 1500);
+                    }, 5000);
+                }, 2000);
             }
         });
     </script>
