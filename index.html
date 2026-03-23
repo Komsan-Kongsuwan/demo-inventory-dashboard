@@ -521,9 +521,16 @@
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
             text-align: center;
             max-width: 600px;
+            width: 90%;
             opacity: 0;
             display: none;
             transition: opacity 1.5s ease-out;
+        }
+        
+        @media (min-width: 768px) {
+            .sample-banner {
+                left: calc(50% + 140px);
+            }
         }
         
         .sample-banner.show {
@@ -533,6 +540,25 @@
         
         .sample-banner.fade-out {
             opacity: 0;
+        }
+        
+        .sample-banner-close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 24px;
+            color: #93c5fd;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 5px 10px;
+            line-height: 1;
+            transition: color 0.2s, transform 0.2s;
+        }
+        
+        .sample-banner-close:hover {
+            color: #ffffff;
+            transform: scale(1.1);
         }
         
         .sample-banner-icon {
@@ -558,6 +584,7 @@
 <body>
     <!-- Sample Data Banner -->
     <div class="sample-banner" id="sampleBanner">
+        <button class="sample-banner-close" onclick="closeSampleBanner()">✕</button>
         <div class="sample-banner-icon">ℹ️</div>
         <div class="sample-banner-title">Sample Data</div>
         <div class="sample-banner-text">
@@ -2377,11 +2404,23 @@
             }
         });
         
-        // Sample Data Banner - Delay 2s, show for 5s, then fade out
+        // Function to close sample banner
+        function closeSampleBanner() {
+            const banner = document.getElementById('sampleBanner');
+            if (banner) {
+                banner.classList.add('fade-out');
+                setTimeout(() => {
+                    banner.style.display = 'none';
+                    banner.classList.remove('show', 'fade-out');
+                }, 1500);
+            }
+        }
+        
+        // Sample Data Banner - Delay 1s, show for 5s, then fade out
         window.addEventListener('load', () => {
             const banner = document.getElementById('sampleBanner');
             if (banner) {
-                // Wait 2 seconds before showing (let data load)
+                // Wait 1 second before showing (let data load)
                 setTimeout(() => {
                     banner.classList.add('show');
                     
@@ -2396,7 +2435,7 @@
                             banner.classList.remove('show', 'fade-out');
                         }, 1500);
                     }, 5000);
-                }, 2000);
+                }, 1000);
             }
         });
     </script>
